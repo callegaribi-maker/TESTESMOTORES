@@ -113,7 +113,7 @@ def main():
     st.markdown('<div class="mw-content">', unsafe_allow_html=True)
 
     if "active_module" not in st.session_state:
-        st.session_state.active_module = "home"
+        st.session_state.active_module = "static_balance"
 
     col1, col2 = st.columns([0.65, 2.0], gap="large")
 
@@ -136,17 +136,13 @@ def main():
             st.markdown('</div>', unsafe_allow_html=True)
 
         # Botões
-        menu_button("🏠 Home", "home")
-        menu_button("📱 Sensor Inercial", "inertial_rec")
         menu_button("⚖️ Equilíbrio Estático", "static_balance")
         menu_button("🚶 Timed Up and Go (TUG)", "tug")
         menu_button("🪑 Sentar e Levantar", "sit_to_stand")
         menu_button("🦵 Posicionamento Articular", "joint_position")
         menu_button("✋ Tremor de Repouso", "resting_tremor")
         menu_button("🚶‍♂️ Caminhada 4 m", "gait_4m")
-        menu_button("👆 Finger Tapping Test", "finger_tapping")
         menu_button("🦘 Salto", "jump")
-        menu_button("⭐ Teste Y", "y_test")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
