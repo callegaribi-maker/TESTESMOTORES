@@ -32,25 +32,26 @@ def render():
     if "sts_saved_results" not in st.session_state:
         st.session_state.sts_saved_results = []  # [{name, resultante_df, mean_dur, std_dur, n_cycles}]
 
-    # ── Configurações (barra lateral do navegador) ─────────────────────────────
-    with st.sidebar:
-        st.header("⚙️ Sentar e Levantar — Configurações")
+    # ── Upload e configurações (página normal, sem barra lateral) ─────────────
+    st.markdown("#### 📥 Arquivo de sinal")
+    uploaded = st.file_uploader(
+        "Selecione o arquivo (CSV, TXT ou Excel)",
+        type=["csv", "txt", "xlsx", "xls"], key="sts_uploader"
+    )
 
-        uploaded = st.file_uploader(
-            "Arquivo de sinal", type=["csv", "txt", "xlsx", "xls"], key="sts_uploader"
-        )
+    df = None
+    x_col = y_col = None
 
-        df = None
-        x_col = y_col = None
-
-        if uploaded:
-            ext = uploaded.name.rsplit(".", 1)[-1].lower()
-            if ext in ("xlsx", "xls"):
-                try:
-                    df = pd.read_excel(uploaded)
-                except Exception as e:
-                    st.error(f"Erro ao ler Excel: {e}")
-            else:
+    if uploaded:
+        ext = uploaded.name.rsplit(".", 1)[-1].lower()
+        if ext in ("xlsx", "xls"):
+            try:
+                df = pd.read_excel(uploaded)
+            except Exception as e:
+                st.error(f"Erro ao ler Excel: {e}")
+        else:
+            c_sep, c_header, c_dec = st.columns(3)
+            with c_sep:
                 sep = st.selectbox(
                     "Separador",
                     [";", ",", "\t", " "],
@@ -63,10 +64,12 @@ def render():
                     index=0,
                     key="sts_sep",
                 )
+            with c_header:
                 header_row = st.number_input(
                     "Linha do cabeçalho (0 = primeira)",
                     min_value=0, max_value=20, value=0, key="sts_header_row",
                 )
+            with c_dec:
                 decimal = st.selectbox(
                     "Decimal",
                     [".", ","],
@@ -77,32 +80,35 @@ def render():
                     index=0,
                     key="sts_decimal",
                 )
+            try:
+                raw = uploaded.read()
                 try:
-                    raw = uploaded.read()
-                    try:
-                        text = raw.decode("utf-8-sig")
-                    except Exception:
-                        text = raw.decode("latin-1")
-                    df = pd.read_csv(
-                        io.StringIO(text),
-                        sep=sep,
-                        header=int(header_row),
-                        decimal=decimal,
-                        engine="python",
-                    )
-                except Exception as e:
-                    st.error(f"Erro ao ler arquivo: {e}")
+                    text = raw.decode("utf-8-sig")
+                except Exception:
+                    text = raw.decode("latin-1")
+                df = pd.read_csv(
+                    io.StringIO(text),
+                    sep=sep,
+                    header=int(header_row),
+                    decimal=decimal,
+                    engine="python",
+                )
+            except Exception as e:
+                st.error(f"Erro ao ler arquivo: {e}")
 
-            if df is not None:
-                cols = df.columns.tolist()
-                default_x = "DURACAO" if "DURACAO" in cols else cols[0]
-                default_y = "ACC EIXO Y" if "ACC EIXO Y" in cols else cols[-1]
+        if df is not None:
+            cols = df.columns.tolist()
+            default_x = "DURACAO" if "DURACAO" in cols else cols[0]
+            default_y = "ACC EIXO Y" if "ACC EIXO Y" in cols else cols[-1]
+            c_x, c_y = st.columns(2)
+            with c_x:
                 x_col = st.selectbox(
                     "Coluna X (tempo)",
                     cols,
                     index=cols.index(default_x) if default_x in cols else 0,
                     key="sts_xcol",
                 )
+            with c_y:
                 y_col = st.selectbox(
                     "Coluna Y (sinal)",
                     cols,
@@ -110,14 +116,17 @@ def render():
                     key="sts_ycol",
                 )
 
-        st.divider()
-        st.subheader("🔍 Detecção automática")
+    st.divider()
+    st.markdown("#### 🔍 Detecção automática de picos")
+    c_prom, c_dist = st.columns(2)
+    with c_prom:
         prominence_pct = st.slider("Proeminência mínima (%)", 1, 80, 20, key="sts_prom")
+    with c_dist:
         min_dist_pct = st.slider("Distância mínima entre picos (%)", 1, 30, 5, key="sts_dist")
-        if st.button("Auto-detectar picos", use_container_width=True, key="sts_autodetect"):
-            st.session_state.sts_trigger_auto = True
+    if st.button("Auto-detectar picos", use_container_width=True, key="sts_autodetect"):
+        st.session_state.sts_trigger_auto = True
 
-        st.divider()
+    with st.expander("⚙️ Configuração avançada"):
         snap_pct = st.slider(
             "Snap para máximo local (%)", 0, 10, 2, key="sts_snap",
             help="Janela ao redor do X digitado para encaixar no máximo local",
@@ -125,7 +134,7 @@ def render():
 
     # ── Sem arquivo ──────────────────────────────────────────────────────────
     if df is None:
-        st.info("👈 Carregue um arquivo na barra lateral para começar.")
+        st.info("👆 Carregue um arquivo acima para começar.")
         with st.expander("📖 Como usar"):
             st.markdown(
                 """
