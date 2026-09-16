@@ -16,6 +16,8 @@ import numpy as np
 import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
+import common
+
 
 def render():
     st.subheader("🪑 Sentar e Levantar (Sit-to-Stand) — Análise de Picos e Ciclos")
@@ -117,6 +119,23 @@ def render():
                 )
 
     st.divider()
+    st.markdown("#### 🎚️ Filtro passa-baixa (opcional)")
+    st.caption("Aplicado ao sinal ANTES da detecção de picos — ajuda a suavizar ruído e evitar picos falsos.")
+    c_filt, c_cut, c_unit = st.columns(3)
+    with c_filt:
+        aplicar_filtro = st.checkbox("Aplicar filtro passa-baixa", value=True, key="sts_apply_filter")
+    with c_cut:
+        cutoff_hz = st.number_input(
+            "Frequência de corte (Hz)", min_value=0.1, max_value=50.0, value=5.0, step=0.5,
+            key="sts_cutoff", disabled=not aplicar_filtro,
+        )
+    with c_unit:
+        unidade_tempo = st.selectbox(
+            "Unidade da coluna X (tempo)", ["Milissegundos", "Segundos"],
+            index=0, key="sts_time_unit", disabled=not aplicar_filtro,
+        )
+
+    st.divider()
     st.markdown("#### 🔍 Detecção automática de picos")
     c_prom, c_dist = st.columns(2)
     with c_prom:
@@ -158,6 +177,22 @@ def render():
     if n == 0:
         st.error("Nenhum dado numérico válido. Verifique separador e decimal.")
         return
+
+    # ── Filtro passa-baixa (aplicado antes de tudo que segue) ─────────────────
+    if aplicar_filtro and n > 3:
+        x_sec = x / 1000.0 if unidade_tempo == "Milissegundos" else x
+        dt = np.median(np.diff(x_sec))
+        fs = 1.0 / dt if dt > 0 else 0.0
+        nyquist = fs / 2.0
+        if fs <= 0 or cutoff_hz >= nyquist:
+            st.warning(
+                f"Frequência de corte ({cutoff_hz:.1f} Hz) inválida para a taxa de amostragem "
+                f"estimada (~{fs:.1f} Hz, Nyquist ~{nyquist:.1f} Hz). Filtro não aplicado — "
+                "ajuste a frequência de corte ou a unidade do tempo acima."
+            )
+        else:
+            y = common.lowpass_filter(y, fs, cutoff_hz)
+            st.caption(f"Filtro aplicado: passa-baixa {cutoff_hz:.1f} Hz (taxa de amostragem estimada: {fs:.1f} Hz).")
 
     # ── Auto-detecção ────────────────────────────────────────────────────────
     if st.session_state.sts_trigger_auto:
