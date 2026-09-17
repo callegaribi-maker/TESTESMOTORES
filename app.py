@@ -5,10 +5,10 @@ import tug
 import sit_to_stand
 import joint_position
 import resting_tremor
+import jump
 # Módulos futuros (criar depois)
 # import gait_4m
 # import finger_tapping
-# import jump_test
 # import y_test
 
 
@@ -181,7 +181,7 @@ def main():
             st.warning("Módulo Finger Tapping Test em desenvolvimento.")
 
         elif st.session_state.active_module == "jump":
-            st.warning("Módulo Salto em desenvolvimento.")
+            jump.render()
 
         elif st.session_state.active_module == "y_test":
             st.warning("Módulo Teste Y em desenvolvimento.")
