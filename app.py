@@ -6,8 +6,8 @@ import sit_to_stand
 import joint_position
 import resting_tremor
 import jump
+import gait_4m
 # Módulos futuros (criar depois)
-# import gait_4m
 # import finger_tapping
 # import y_test
 
@@ -175,7 +175,7 @@ def main():
             resting_tremor.render()
 
         elif st.session_state.active_module == "gait_4m":
-            st.warning("Módulo Caminhada de 4 m em desenvolvimento.")
+            gait_4m.render()
 
         elif st.session_state.active_module == "finger_tapping":
             st.warning("Módulo Finger Tapping Test em desenvolvimento.")
