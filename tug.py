@@ -273,25 +273,69 @@ def render():
         st.warning("Alguns pontos-chave não foram detectados automaticamente com confiança — confira e ajuste manualmente abaixo.")
 
     # ---- ajuste manual (fonte da verdade para os cálculos) ----
-    st.markdown("#### Ajuste fino dos pontos-chave (ms, a partir do início da captura)")
-    tmin_ms = float(min(t_g100[0], t_a100[0]))
-    tmax_ms = float(max(t_g100[-1], t_a100[-1]))
+    import hashlib
+    sig = hashlib.md5((st.session_state.get("tug_accel_raw") or b"") +
+                      (st.session_state.get("tug_gyro_raw") or b"")).hexdigest()[:8]
+    tmin_s = float(min(t_g100[0], t_a100[0])) / 1000.0
+    tmax_s = float(max(t_g100[-1], t_a100[-1])) / 1000.0
 
-    def _num(label, val, key):
-        return st.number_input(label, min_value=tmin_ms, max_value=tmax_ms,
-                                value=float(np.clip(val, tmin_ms, tmax_ms)),
-                                step=10.0, key=key)
+    eventos = [  # (id, rótulo, valor automático em s, cor)
+        ("inicio", "Início", t_inicio_auto / 1000.0, "red"),
+        ("a1", "A1 — pico levantar", t_a1_auto / 1000.0, "#FBC02D"),
+        ("g1", "G1 — giro de ida", t_g1_auto / 1000.0, "#FBC02D"),
+        ("g2", "G2 — giro de volta", t_g2_auto / 1000.0, "#2E7D32"),
+        ("a2", "A2 — pico sentar", t_a2_auto / 1000.0, "#2E7D32"),
+        ("fim", "Fim", t_fim_auto / 1000.0, "blue"),
+    ]
+    key_of = lambda ev: f"tug_{sig}_{ev}_s"
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        t_inicio_ms = _num("Início (ms)", t_inicio_auto, "tug_t_inicio")
-        t_a1_ms = _num("A1 — pico levantar (ms)", t_a1_auto, "tug_t_a1")
-    with c2:
-        t_g1_ms = _num("G1 — giro de ida (ms)", t_g1_auto, "tug_t_g1")
-        t_g2_ms = _num("G2 — giro de volta (ms)", t_g2_auto, "tug_t_g2")
-    with c3:
-        t_a2_ms = _num("A2 — pico sentar (ms)", t_a2_auto, "tug_t_a2")
-        t_fim_ms = _num("Fim (ms)", t_fim_auto, "tug_t_fim")
+    def _restaurar_todos():
+        for ev, _, v, _ in eventos:
+            st.session_state[key_of(ev)] = float(np.clip(v, tmin_s, tmax_s))
+
+    def _restaurar_um(ev, v):
+        st.session_state[key_of(ev)] = float(np.clip(v, tmin_s, tmax_s))
+
+    for ev, _, v, _ in eventos:  # valor inicial = detecção automática (só na 1ª vez por arquivo)
+        if key_of(ev) not in st.session_state:
+            st.session_state[key_of(ev)] = float(np.clip(v, tmin_s, tmax_s))
+
+    st.markdown("#### ✏️ Edição manual dos eventos (segundos)")
+    st.caption(
+        "Digite o instante exato (em segundos, mesmo eixo dos gráficos) para corrigir uma marcação "
+        "errada. Os valores da detecção automática aparecem ao lado; o botão ↺ volta ao automático. "
+        "Todos os cálculos e o relatório usam os valores desta tela."
+    )
+    st.button("↺ Restaurar TODOS os eventos para a detecção automática", on_click=_restaurar_todos,
+              key=f"tug_{sig}_reset_all")
+
+    vals = {}
+    for linha in (eventos[:3], eventos[3:]):
+        cols = st.columns(3)
+        for col, (ev, rotulo, v_auto, _) in zip(cols, linha):
+            with col:
+                vals[ev] = st.number_input(
+                    f"{rotulo} (s)", min_value=tmin_s, max_value=tmax_s,
+                    step=0.01, format="%.3f", key=key_of(ev),
+                    help=f"Automático: {v_auto:.3f} s",
+                )
+                modif = abs(vals[ev] - v_auto) > 1e-6
+                st.caption(f"auto: {v_auto:.3f} s" + ("  ·  ✏️ editado" if modif else ""))
+                if modif:
+                    st.button("↺ voltar ao automático", key=f"tug_{sig}_rst_{ev}",
+                              on_click=_restaurar_um, args=(ev, v_auto))
+
+    t_inicio_ms = vals["inicio"] * 1000.0
+    t_a1_ms = vals["a1"] * 1000.0
+    t_g1_ms = vals["g1"] * 1000.0
+    t_g2_ms = vals["g2"] * 1000.0
+    t_a2_ms = vals["a2"] * 1000.0
+    t_fim_ms = vals["fim"] * 1000.0
+
+    ordem = [vals["inicio"], vals["a1"], vals["g1"], vals["g2"], vals["a2"], vals["fim"]]
+    if any(b < a for a, b in zip(ordem, ordem[1:])):
+        st.warning("⚠️ Ordem temporal esperada: Início ≤ A1 ≤ G1 ≤ G2 ≤ A2 ≤ Fim. "
+                   "Há eventos fora de ordem — confira as marcações.")
 
     # recalcula os índices/picos a partir dos valores finais (auto OU editado à mão)
     i_g1_f = _nearest_index(t_g100, t_g1_ms)
